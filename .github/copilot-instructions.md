@@ -13,8 +13,8 @@
 - This repository is a template source, not an application. `src\Domain.Common` contains the reusable DDD building blocks, and `src\Domain.XXX` is a placeholder template for a dedicated `Domain.<Name>` project.
 - `Domain.Common` defines the base model primitives under `Common\`: `Entity<TId>` for identity-based equality, `ValueObject` for component-based equality, `AggregateRoot` for collecting domain events, `IDomainEvent` / `DomainEventBase` for event contracts, and `DomainEventDispatcher` for dispatching events through `IServiceProvider`.
 - `Domain.XXX` is intentionally almost empty. It preserves the DDD folder layout (`Aggregates`, `Entities`, `ValueObjects`, `Events`) and references `Domain.Common`, but example domain behavior lives in `tests\Domain.XXX.Tests\Support\ExampleDomainModel.cs` instead of the template project so the generated template stays clean.
-- The repository also ships scaffolding automation. `scripts\New-DomainTemplate.ps1` copies either `src\Domain.Common` or `src\Domain.XXX`, replaces the `Domain.XXX` placeholder with `Domain.<Name>`, and rewrites the `Domain.Common` project reference when a shared project already exists in the target working tree.
-- CI packages the two source templates directly from `src\Domain.Common` and `src\Domain.XXX`, so changes to those directories affect both local scaffolding and release artifacts.
+- The repository also ships scaffolding automation. `scripts\New-DomainTemplate.ps1` installs either the `src\Domain.Common` or `src\Domain.XXX` template through `dotnet new`, and rewrites the `Domain.Common` project reference when a shared project already exists in the target working tree.
+- CI packs the real `dotnet new` templates from `src\Domain.Common` and `src\Domain.XXX` into the `Peppe426.DDDDefaults.Templates` NuGet template package, so release artifacts contain the templates rather than the repository zip.
 
 ## Key conventions
 
