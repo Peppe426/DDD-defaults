@@ -25,14 +25,19 @@ public sealed class DomainEventDispatcher : IDomainEventDispatcher
 
             var handleMethod = _handleMethodCache.GetOrAdd(
                 eventType,
-                _ => handlerType.GetMethod("HandleAsync")!);
+                _ => handlerType.GetMethod("HandleAsync")
+                    ?? throw new InvalidOperationException(
+                        $"Method 'HandleAsync' not found on handler type '{handlerType.FullName}'."));
 
             var handlers = _serviceProvider.GetServices(handlerType);
 
             foreach (var handler in handlers)
             {
-                var task = (Task)handleMethod.Invoke(handler, [domainEvent])!;
-                await task.ConfigureAwait(false);
+                var result = handleMethod.Invoke(handler, [domainEvent])
+                    ?? throw new InvalidOperationException(
+                        $"Handler '{handler?.GetType().FullName}' returned null from 'HandleAsync'. Handlers must return a non-null Task.");
+
+                await ((Task)result).ConfigureAwait(false);
             }
         }
     }
