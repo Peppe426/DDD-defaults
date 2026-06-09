@@ -32,25 +32,26 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
 
-      - name: Package Domain.Common template
+      - name: Pack template package
         run: |
           mkdir -p artifacts
-          zip -r artifacts/Domain.Common.zip src/Domain.Common/
+          dotnet pack packaging/DDDDefaults.Templates/DDDDefaults.Templates.csproj --configuration Release --output artifacts /p:Version=0.0.0-ci.${{ github.run_number }}
 
-      - name: Package Domain.XXX template
+      - name: Smoke test template package
+        shell: pwsh
         run: |
-          zip -r artifacts/Domain.XXX.zip src/Domain.XXX/
+          ./scripts/Test-TemplatePackage.ps1 -PackagePath "./artifacts/Peppe426.DDDDefaults.Templates.0.0.0-ci.${{ github.run_number }}.nupkg"
 
-      - name: Upload Domain.Common artifact
+      - name: Upload template package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: Domain.Common
-          path: artifacts/Domain.Common.zip
+          name: Peppe426.DDDDefaults.Templates
+          path: artifacts/Peppe426.DDDDefaults.Templates.0.0.0-ci.${{ github.run_number }}.nupkg
           retention-days: 90
 
-      - name: Upload Domain.XXX artifact
+      - name: Upload scaffolding script artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: Domain.XXX
-          path: artifacts/Domain.XXX.zip
+          name: New-DomainTemplate.ps1
+          path: scripts/New-DomainTemplate.ps1
           retention-days: 90

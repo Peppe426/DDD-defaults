@@ -49,27 +49,28 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
 
-      - name: Package Domain.Common template
+      - name: Pack template package
         run: |
           mkdir -p artifacts
-          zip -r "artifacts/Domain.Common-${VERSION}.zip" src/Domain.Common/
+          dotnet pack packaging/DDDDefaults.Templates/DDDDefaults.Templates.csproj --configuration Release --output artifacts /p:Version=${VERSION}
 
-      - name: Package Domain.XXX template
+      - name: Smoke test template package
+        shell: pwsh
         run: |
-          zip -r "artifacts/Domain.XXX-${VERSION}.zip" src/Domain.XXX/
+          ./scripts/Test-TemplatePackage.ps1 -PackagePath "./artifacts/Peppe426.DDDDefaults.Templates.${{ env.VERSION }}.nupkg"
 
-      - name: Upload Domain.Common artifact
+      - name: Upload template package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: Domain.Common-${{ env.VERSION }}
-          path: artifacts/Domain.Common-${{ env.VERSION }}.zip
+          name: Peppe426.DDDDefaults.Templates-${{ env.VERSION }}
+          path: artifacts/Peppe426.DDDDefaults.Templates.${{ env.VERSION }}.nupkg
           retention-days: 90
 
-      - name: Upload Domain.XXX artifact
+      - name: Upload scaffolding script artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: Domain.XXX-${{ env.VERSION }}
-          path: artifacts/Domain.XXX-${{ env.VERSION }}.zip
+          name: New-DomainTemplate-${{ env.VERSION }}
+          path: scripts/New-DomainTemplate.ps1
           retention-days: 90
 
       - name: Publish GitHub Release assets
@@ -79,7 +80,7 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            artifacts/Domain.Common-${{ env.VERSION }}.zip
-            artifacts/Domain.XXX-${{ env.VERSION }}.zip
+            artifacts/Peppe426.DDDDefaults.Templates.${{ env.VERSION }}.nupkg
+            scripts/New-DomainTemplate.ps1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
