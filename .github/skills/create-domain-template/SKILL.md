@@ -12,7 +12,7 @@ tags:
 
 Use this skill when you want to scaffold either the shared `Domain.Common` project or a dedicated `Domain.<Name>` project from this repository.
 
-This skill is designed to work from **any** solution or folder. It downloads the current `New-DomainTemplate.ps1` script from `Peppe426/DDD-defaults` and uses that script to scaffold from the **latest GitHub release** assets instead of assuming this repository is checked out locally.
+This skill is designed to work from **any** solution or folder. It resolves a GitHub release from `Peppe426/DDD-defaults`, downloads the `New-DomainTemplate.ps1` asset from that same release, and uses it to install the matching `dotnet new` template package instead of assuming this repository is checked out locally.
 
 ## Workflow
 
@@ -26,7 +26,7 @@ This skill is designed to work from **any** solution or folder. It downloads the
    .\Domain
    ```
 
-4. Download the scaffolding script to a temporary file:
+4. Resolve the release to use and download the scaffolding script asset from that exact release:
 
    ```powershell
    $repository = 'Peppe426/DDD-defaults'
@@ -34,8 +34,15 @@ This skill is designed to work from **any** solution or folder. It downloads the
       Accept = 'application/vnd.github+json'
       'User-Agent' = 'DDD-defaults-scaffolder'
    }
+   $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repository/releases/latest" -Headers $headers
+   $scriptAsset = @($release.assets) | Where-Object { $_.name -eq 'New-DomainTemplate.ps1' } | Select-Object -First 1
+
+   if ($null -eq $scriptAsset) {
+      throw "Could not find New-DomainTemplate.ps1 in release $($release.tag_name)."
+   }
+
    $scriptPath = Join-Path $env:TEMP ("New-DomainTemplate-{0}.ps1" -f ([Guid]::NewGuid().ToString('N')))
-   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$repository/main/scripts/New-DomainTemplate.ps1" -Headers $headers -OutFile $scriptPath
+   Invoke-WebRequest -Uri $scriptAsset.browser_download_url -Headers $headers -OutFile $scriptPath
    ```
 
 5. Run the downloaded scaffolding script:
@@ -43,13 +50,13 @@ This skill is designed to work from **any** solution or folder. It downloads the
    - For `Domain.Common`:
 
      ```powershell
-    & $scriptPath -Template common -DestinationRoot "<target-path>" -Repository $repository
+    & $scriptPath -Template common -DestinationRoot "<target-path>" -Repository $repository -ReleaseTag $release.tag_name
      ```
 
    - For a dedicated domain:
 
      ```powershell
-    & $scriptPath -Template domain -DomainName "<name>" -DestinationRoot "<target-path>" -Repository $repository
+    & $scriptPath -Template domain -DomainName "<name>" -DestinationRoot "<target-path>" -Repository $repository -ReleaseTag $release.tag_name
      ```
 
 6. Clean up the temporary script:
@@ -62,8 +69,8 @@ This skill is designed to work from **any** solution or folder. It downloads the
 
 ## Behavior
 
-- The script downloads the template source from the latest public GitHub release of `Peppe426/DDD-defaults`.
-- Dedicated domain projects are scaffolded from `src\Domain.XXX`.
+- The script installs a real `dotnet new` template package from the selected public GitHub release of `Peppe426/DDD-defaults`.
+- The downloaded script asset and the template package always come from the same release tag.
 - Dedicated domain projects use the DDD folder structure:
   - `Aggregates`
   - `Entities`
