@@ -15,12 +15,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2
         with:
           global-json-file: global.json
 
@@ -59,21 +59,21 @@ jobs:
           zip -r "artifacts/Domain.XXX-${VERSION}.zip" src/Domain.XXX/
 
       - name: Upload Domain.Common artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Domain.Common-${{ env.VERSION }}
           path: artifacts/Domain.Common-${{ env.VERSION }}.zip
           retention-days: 90
 
       - name: Upload Domain.XXX artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Domain.XXX-${{ env.VERSION }}
           path: artifacts/Domain.XXX-${{ env.VERSION }}.zip
           retention-days: 90
 
       - name: Publish GitHub Release assets
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
