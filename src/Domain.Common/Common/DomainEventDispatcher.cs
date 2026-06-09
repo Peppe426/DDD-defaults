@@ -1,9 +1,13 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Domain.Common.Common;
 
 public sealed class DomainEventDispatcher : IDomainEventDispatcher
 {
+    private static readonly ConcurrentDictionary<Type, MethodInfo> _handleMethodCache = new();
+
     private readonly IServiceProvider _serviceProvider;
 
     public DomainEventDispatcher(IServiceProvider serviceProvider)
@@ -16,18 +20,18 @@ public sealed class DomainEventDispatcher : IDomainEventDispatcher
     {
         foreach (var domainEvent in events)
         {
-            var handlerType = typeof(IDomainEventHandler<>)
-                .MakeGenericType(domainEvent.GetType());
+            var eventType = domainEvent.GetType();
+            var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
+
+            var handleMethod = _handleMethodCache.GetOrAdd(
+                eventType,
+                _ => handlerType.GetMethod("HandleAsync")!);
 
             var handlers = _serviceProvider.GetServices(handlerType);
 
             foreach (var handler in handlers)
             {
-                if (handler is null)
-                    continue;
-
-                var method = handlerType.GetMethod("HandleAsync")!;
-                var task = (Task)method.Invoke(handler, [domainEvent])!;
+                var task = (Task)handleMethod.Invoke(handler, [domainEvent])!;
                 await task.ConfigureAwait(false);
             }
         }

@@ -23,7 +23,7 @@ public class SendOrderEmailHandlerTests
     }
 
     [Test]
-    public void Should_ThrowArgumentNullException_When_NullEventIsHandled()
+    public async Task Should_ThrowArgumentNullException_When_NullEventIsHandled()
     {
         // Given
         var handler = new SendOrderEmailHandler();
@@ -32,6 +32,6 @@ public class SendOrderEmailHandlerTests
         Func<Task> act = () => handler.HandleAsync(null!);
 
         // Then
-        act.Should().ThrowAsync<ArgumentNullException>();
+        await act.Should().ThrowAsync<ArgumentNullException>();
     }
 }
