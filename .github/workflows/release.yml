@@ -59,14 +59,14 @@ jobs:
           zip -r "artifacts/Domain.XXX-${VERSION}.zip" src/Domain.XXX/
 
       - name: Upload Domain.Common artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Domain.Common-${{ env.VERSION }}
           path: artifacts/Domain.Common-${{ env.VERSION }}.zip
           retention-days: 90
 
       - name: Upload Domain.XXX artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Domain.XXX-${{ env.VERSION }}
           path: artifacts/Domain.XXX-${{ env.VERSION }}.zip
