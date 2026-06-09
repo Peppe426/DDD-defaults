@@ -17,11 +17,11 @@
     <Content Include="..\..\src\Domain.Common\**\*"
              Exclude="..\..\src\Domain.Common\bin\**;..\..\src\Domain.Common\obj\**"
              Pack="true"
-             PackagePath="content\Domain.Common\" />
+             PackagePath="content/DomainCommonTemplate/" />
     <Content Include="..\..\src\Domain.XXX\**\*"
              Exclude="..\..\src\Domain.XXX\bin\**;..\..\src\Domain.XXX\obj\**"
              Pack="true"
-             PackagePath="content\Domain.XXX\" />
+             PackagePath="content/DomainProjectTemplate/" />
   </ItemGroup>
 
 </Project>
