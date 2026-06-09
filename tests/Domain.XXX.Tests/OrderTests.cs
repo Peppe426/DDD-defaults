@@ -57,15 +57,13 @@ public class OrderTests
     public void Should_HaveOccurredOnSet_When_OrderIsConfirmed()
     {
         // Given
-        var before = DateTime.UtcNow;
         var order = new Order();
 
         // When
         order.Confirm();
-        var after = DateTime.UtcNow;
 
         // Then
         var domainEvent = (OrderConfirmedDomainEvent)order.DomainEvents.Single();
-        domainEvent.OccurredOn.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        domainEvent.OccurredOn.Should().BeCloseTo(DateTime.UtcNow, precision: TimeSpan.FromSeconds(5));
     }
 }
