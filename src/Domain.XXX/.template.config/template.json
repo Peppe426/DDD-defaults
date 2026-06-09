@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Peppe426",
+  "classifications": [
+    "DDD",
+    "Domain-Driven Design",
+    "Library"
+  ],
+  "identity": "Peppe426.DDDDefaults.Domain.Project",
+  "name": "DDD Defaults Domain Project",
+  "shortName": "ddd-domain-project",
+  "sourceName": "Domain.XXX",
+  "preferNameDirectory": true,
+  "defaultName": "Domain.Sample",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sources": [
+    {
+      "exclude": [
+        "**/[Bb]in/**",
+        "**/[Oo]bj/**",
+        ".template.config/**"
+      ]
+    }
+  ]
+}
