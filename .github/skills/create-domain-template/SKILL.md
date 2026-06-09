@@ -33,15 +33,15 @@ Do **not** copy the template source files into an existing project as loose `.cs
    .\Domain
    ```
 
-4. Check whether the current directory already contains solution files:
+4. Check whether the current directory or its parent directories contain solution files:
 
    ```powershell
    $solutions = @(Get-ChildItem -Path (Get-Location) -File | Where-Object { $_.Extension -in @('.sln', '.slnx') })
    ```
 
-   - If exactly one solution is present, use it and add the generated project to that solution.
-   - If multiple solutions are present, ask the user which one to use or whether to skip solution integration.
-   - If no solution is present, scaffold the project only.
+   - If exactly one solution is present in the nearest matching directory, use it and add the generated project to that solution.
+   - If multiple solutions are present in the nearest matching directory, ask the user which one to use or whether to skip solution integration.
+   - If no solution is present in the current directory or any parent directory, scaffold the project only.
 
 5. Resolve the release to use and download the scaffolding script asset from that exact release:
 
@@ -90,7 +90,7 @@ Do **not** copy the template source files into an existing project as loose `.cs
 - The downloaded script asset and the template package always come from the same release tag.
 - Using this skill means creating a **new project folder with a `.csproj`**, not copying template files into an existing project.
 - The generated `Domain.Common` project keeps its reusable primitives at the project root and does not add extra placeholder folders.
-- When a solution is supplied or auto-detected in the current directory, the generated project is added to that solution.
+- When a solution is supplied or auto-detected from the current directory or a parent directory, the generated project is added to that solution.
 - Dedicated domain projects use the DDD folder structure:
   - `Aggregates`
   - `Entities`

@@ -21,7 +21,7 @@ Use the repository skill at `.github\skills\create-domain-template\SKILL.md` to 
 - `Domain.Common`
 - `Domain.<Name>`
 
-The skill drives the released `scripts\New-DomainTemplate.ps1` asset, resolves a matching `Peppe426.DDDDefaults.Templates.<version>.nupkg` from the same GitHub release, installs that package with `dotnet new`, defaults the target path to `.\Domain`, can add the generated `.csproj` to a solution, and rewrites the dedicated domain `ProjectReference` so it points at a local `Domain.Common` project when one already exists in the working tree.
+The skill drives the released `scripts\New-DomainTemplate.ps1` asset, resolves a matching `Peppe426.DDDDefaults.Templates.<version>.nupkg` from the same GitHub release, installs that package with `dotnet new`, defaults the target path to `.\Domain`, auto-detects the nearest solution in the current directory or parent directories so it can add the generated `.csproj`, and rewrites the dedicated domain `ProjectReference` so it points at a local `Domain.Common` project when one already exists in the working tree.
 
 The generated `Domain.Common` project keeps its reusable primitives directly at the project root. It does not scaffold extra `Common`, `Aggregates`, `Entities`, `ValueObjects`, or `Events` folders.
 
@@ -67,4 +67,4 @@ You can do that by either:
 1. Downloading `https://raw.githubusercontent.com/Peppe426/DDD-defaults/main/.github/skills/create-domain-template/SKILL.md`
 2. Saving it as `.github\skills\create-domain-template\SKILL.md` in your solution
 
-Once the file is in place, ask Copilot to use the `create-domain-template` skill. The skill will fetch the latest released template pack from this repository, scaffold a standalone project folder, and add the generated `.csproj` to your solution when you choose one, so your solution does not need a local checkout of `DDD-defaults`.
+Once the file is in place, ask Copilot to use the `create-domain-template` skill. The skill will fetch the latest released template pack from this repository, scaffold a standalone project folder, and add the generated `.csproj` to the nearest detected solution when possible, so your solution does not need a local checkout of `DDD-defaults`.

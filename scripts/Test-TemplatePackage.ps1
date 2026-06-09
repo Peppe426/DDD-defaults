@@ -22,6 +22,8 @@ function Invoke-DotNetCommand {
 }
 
 $resolvedPackagePath = (Resolve-Path -LiteralPath $PackagePath -ErrorAction Stop).Path
+$repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$scaffoldingScriptPath = Join-Path $PSScriptRoot 'New-DomainTemplate.ps1'
 $templateHive = Join-Path ([System.IO.Path]::GetTempPath()) ("ddd-defaults-hive-{0}" -f ([Guid]::NewGuid().ToString('N')))
 $outputRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ddd-defaults-smoke-{0}" -f ([Guid]::NewGuid().ToString('N')))
 
@@ -87,6 +89,55 @@ try
     if ($null -eq $projectReference -or $projectReference.Include -ne '..\Domain.Common\Domain.Common.csproj')
     {
         throw "Expected Domain.Sales to reference '..\Domain.Common\Domain.Common.csproj'."
+    }
+
+    $solutionWorkspace = Join-Path $outputRoot 'SolutionWorkspace'
+    $nestedWorkingDirectory = Join-Path $solutionWorkspace 'tools\scaffolding'
+    $solutionDestinationRoot = Join-Path $solutionWorkspace 'Domain'
+    $solutionPath = $null
+    $scaffoldedProjectPath = Join-Path $solutionDestinationRoot 'Domain.Common\Domain.Common.csproj'
+
+    New-Item -ItemType Directory -Path $nestedWorkingDirectory -Force | Out-Null
+    Invoke-DotNetCommand -Arguments @('new', 'sln', '-n', 'TemplateSmoke', '-o', $solutionWorkspace)
+    $solutionPath = @(
+        Join-Path $solutionWorkspace 'TemplateSmoke.slnx'
+        Join-Path $solutionWorkspace 'TemplateSmoke.sln'
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+
+    if ([string]::IsNullOrWhiteSpace($solutionPath))
+    {
+        throw "Expected dotnet new sln to create a solution file in '$solutionWorkspace'."
+    }
+
+    Push-Location $nestedWorkingDirectory
+    try
+    {
+        & $scaffoldingScriptPath -Template 'common' -DestinationRoot $solutionDestinationRoot -LocalRepositoryRoot $repositoryRoot
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Scaffolding script failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally
+    {
+        Pop-Location
+    }
+
+    if (-not (Test-Path -LiteralPath $scaffoldedProjectPath))
+    {
+        throw "Expected scaffolded project at '$scaffoldedProjectPath'."
+    }
+
+    $solutionListOutput = & dotnet sln $solutionPath list
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "dotnet sln list failed with exit code $LASTEXITCODE."
+    }
+
+    if (-not ($solutionListOutput -match 'Domain\\Domain\.Common\\Domain\.Common\.csproj'))
+    {
+        throw "Expected the scaffolded Domain.Common project to be added to '$solutionPath'."
     }
 
     Invoke-DotNetCommand -Arguments @('build', $commonProject, '--configuration', 'Release')

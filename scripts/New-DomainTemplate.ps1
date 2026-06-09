@@ -181,17 +181,30 @@ function Resolve-SolutionFilePath {
         return $resolvedSolutionPath.Path
     }
 
-    $solutionCandidates = @(Get-ChildItem -Path (Get-Location).Path -File |
-        Where-Object { $_.Extension -in @('.sln', '.slnx') })
+    $searchDirectory = (Get-Location).Path
 
-    if ($solutionCandidates.Count -gt 1)
+    while ($true)
     {
-        throw "Multiple solution files were found in '$(Get-Location)'. Specify -SolutionPath explicitly."
-    }
+        $solutionCandidates = @(Get-ChildItem -Path $searchDirectory -File |
+            Where-Object { $_.Extension -in @('.sln', '.slnx') })
 
-    if ($solutionCandidates.Count -eq 1)
-    {
-        return $solutionCandidates[0].FullName
+        if ($solutionCandidates.Count -gt 1)
+        {
+            throw "Multiple solution files were found in '$searchDirectory'. Specify -SolutionPath explicitly."
+        }
+
+        if ($solutionCandidates.Count -eq 1)
+        {
+            return $solutionCandidates[0].FullName
+        }
+
+        $parentDirectory = Split-Path -Path $searchDirectory -Parent
+        if ([string]::IsNullOrWhiteSpace($parentDirectory) -or $parentDirectory -eq $searchDirectory)
+        {
+            break
+        }
+
+        $searchDirectory = $parentDirectory
     }
 
     return $null
