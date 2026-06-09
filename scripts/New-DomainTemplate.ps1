@@ -19,6 +19,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$templatePackageId = 'Peppe426.DDDDefaults.Templates'
+$templatePackageAssetPattern = "$templatePackageId*.nupkg"
+
 function Get-GitHubApiHeaders {
     return @{
         'Accept' = 'application/vnd.github+json'
@@ -47,132 +50,99 @@ function Get-ReleaseMetadata {
     return Invoke-RestMethod -Uri $releaseUri -Headers $headers
 }
 
-function Get-ReleaseAssetArchive {
+function Get-ReleaseAsset {
     param(
         [Parameter(Mandatory = $true)]
         [string]$RepositoryName,
 
         [Parameter(Mandatory = $true)]
-        [ValidateSet('common', 'domain')]
-        [string]$TemplateName,
+        [string]$AssetNamePattern,
 
         [string]$Tag
     )
 
     $release = Get-ReleaseMetadata -RepositoryName $RepositoryName -Tag $Tag
-    $assetNamePrefix = if ($TemplateName -eq 'common') { 'Domain.Common-' } else { 'Domain.XXX-' }
     $asset = @($release.assets) |
-        Where-Object { $_.name -like "$assetNamePrefix*.zip" } |
+        Where-Object { $_.name -like $AssetNamePattern } |
         Select-Object -First 1
 
     if ($null -eq $asset)
     {
         $resolvedTag = if ([string]::IsNullOrWhiteSpace($Tag)) { $release.tag_name } else { $Tag }
-        throw "Could not locate a release asset matching '$assetNamePrefix*.zip' for release '$resolvedTag'."
+        throw "Could not locate a release asset matching '$AssetNamePattern' for release '$resolvedTag'."
     }
 
-    $archivePath = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-{0}.zip" -f ([Guid]::NewGuid().ToString('N')))
-    $headers = Get-GitHubApiHeaders
-
-    Invoke-WebRequest -Uri $asset.browser_download_url -Headers $headers -OutFile $archivePath
-
-    return $archivePath
+    return $asset
 }
 
-function Expand-RepositoryArchive {
+function Download-ReleaseAsset {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ArchivePath
+        [pscustomobject]$Asset
     )
 
-    $extractPath = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-{0}" -f ([Guid]::NewGuid().ToString('N')))
-    Expand-Archive -Path $ArchivePath -DestinationPath $extractPath
+    $downloadPath = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-{0}-{1}" -f ([Guid]::NewGuid().ToString('N')), $Asset.name)
+    $headers = Get-GitHubApiHeaders
 
-    $expandedRoot = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
-    if ($null -eq $expandedRoot)
+    Invoke-WebRequest -Uri $Asset.browser_download_url -Headers $headers -OutFile $downloadPath
+
+    return $downloadPath
+}
+
+function Invoke-DotNetCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    & dotnet @Arguments
+
+    if ($LASTEXITCODE -ne 0)
     {
-        throw "Could not locate the extracted repository folder."
-    }
-
-    return @{
-        ExtractPath = $extractPath
-        RepositoryRoot = $expandedRoot.FullName
+        throw "dotnet $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
     }
 }
 
-function Get-TemplateRootFromExpandedArchive {
+function Get-TemplateInstallSource {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$RepositoryRoot,
+        [ValidateSet('common', 'domain')]
+        [string]$TemplateName,
 
+        [string]$RepositoryName,
+
+        [string]$Tag,
+
+        [string]$ResolvedRepositoryRoot
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ResolvedRepositoryRoot))
+    {
+        if ($TemplateName -eq 'common')
+        {
+            return (Join-Path $ResolvedRepositoryRoot 'src\Domain.Common')
+        }
+
+        return (Join-Path $ResolvedRepositoryRoot 'src\Domain.XXX')
+    }
+
+    $templateAsset = Get-ReleaseAsset -RepositoryName $RepositoryName -AssetNamePattern $templatePackageAssetPattern -Tag $Tag
+    return Download-ReleaseAsset -Asset $templateAsset
+}
+
+function Get-TemplateShortName {
+    param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('common', 'domain')]
         [string]$TemplateName
     )
 
-    $projectFileName = if ($TemplateName -eq 'common') { 'Domain.Common.csproj' } else { 'Domain.XXX.csproj' }
-    $projectFile = Get-ChildItem -Path $RepositoryRoot -Recurse -Filter $projectFileName -File |
-        Select-Object -First 1
-
-    if ($null -eq $projectFile)
+    if ($TemplateName -eq 'common')
     {
-        throw "Could not locate '$projectFileName' in the downloaded template archive."
+        return 'ddd-domain-common'
     }
 
-    return $projectFile.DirectoryName
-}
-
-function Copy-TemplateProject {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SourcePath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$DestinationPath
-    )
-
-    if (Test-Path -LiteralPath $DestinationPath)
-    {
-        throw "Destination '$DestinationPath' already exists."
-    }
-
-    New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
-
-    Get-ChildItem -Path $SourcePath -Force |
-        Where-Object { $_.Name -notin 'bin', 'obj' } |
-        ForEach-Object {
-            Copy-Item -Path $_.FullName -Destination $DestinationPath -Recurse -Force
-        }
-}
-
-function Replace-PlaceholderText {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ProjectPath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ProjectName
-    )
-
-    $files = Get-ChildItem -Path $ProjectPath -Recurse -File |
-        Where-Object { $_.Extension -in '.cs', '.csproj', '.md', '.json', '.yml', '.yaml', '.props', '.targets' }
-
-    foreach ($file in $files)
-    {
-        $content = Get-Content -Path $file.FullName -Raw
-        $updatedContent = $content.Replace('Domain.XXX', $ProjectName)
-
-        if ($updatedContent -ne $content)
-        {
-            Set-Content -Path $file.FullName -Value $updatedContent -NoNewline
-        }
-    }
-
-    $templateProjectFile = Join-Path $ProjectPath 'Domain.XXX.csproj'
-    if (Test-Path -LiteralPath $templateProjectFile)
-    {
-        Rename-Item -Path $templateProjectFile -NewName "$ProjectName.csproj"
-    }
+    return 'ddd-domain-project'
 }
 
 function Get-DomainCommonProjectPath {
@@ -233,8 +203,8 @@ function Set-DomainCommonReference {
     $projectXml.Save($ProjectFilePath)
 }
 
-$archivePath = $null
-$extractedRepository = $null
+$templateInstallSource = $null
+$templateHive = $null
 
 try
 {
@@ -244,41 +214,41 @@ try
     }
 
     $projectName = if ($Template -eq 'common') { 'Domain.Common' } else { "Domain.$DomainName" }
+    $repositoryRoot = $null
 
-    if ([string]::IsNullOrWhiteSpace($LocalRepositoryRoot))
-    {
-        $archivePath = Get-ReleaseAssetArchive -RepositoryName $Repository -TemplateName $Template -Tag $ReleaseTag
-        $extractedRepository = Expand-RepositoryArchive -ArchivePath $archivePath
-        $templateRoot = Get-TemplateRootFromExpandedArchive -RepositoryRoot $extractedRepository.RepositoryRoot -TemplateName $Template
-    }
-    else
+    if (-not [string]::IsNullOrWhiteSpace($LocalRepositoryRoot))
     {
         $resolvedRepositoryRoot = Resolve-Path -LiteralPath $LocalRepositoryRoot -ErrorAction Stop
         $repositoryRoot = $resolvedRepositoryRoot.Path
-        $templateRoot = if ($Template -eq 'common')
-        {
-            Join-Path $repositoryRoot 'src\Domain.Common'
-        }
-        else
-        {
-            Join-Path $repositoryRoot 'src\Domain.XXX'
-        }
     }
 
-    if (-not (Test-Path -LiteralPath $templateRoot))
+    $templateInstallSource = Get-TemplateInstallSource `
+        -TemplateName $Template `
+        -RepositoryName $Repository `
+        -Tag $ReleaseTag `
+        -ResolvedRepositoryRoot $repositoryRoot
+
+    if (-not (Test-Path -LiteralPath $templateInstallSource))
     {
-        throw "Template path '$templateRoot' was not found in the resolved template source."
+        throw "Template source '$templateInstallSource' was not found in the resolved template source."
     }
 
     New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
 
     $destinationPath = Join-Path $DestinationRoot $projectName
-    Copy-TemplateProject -SourcePath $templateRoot -DestinationPath $destinationPath
+    if (Test-Path -LiteralPath $destinationPath)
+    {
+        throw "Destination '$destinationPath' already exists."
+    }
+
+    $templateHive = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-hive-{0}" -f ([Guid]::NewGuid().ToString('N')))
+    $templateShortName = Get-TemplateShortName -TemplateName $Template
+
+    Invoke-DotNetCommand -Arguments @('new', '--debug:custom-hive', $templateHive, 'install', $templateInstallSource)
+    Invoke-DotNetCommand -Arguments @('new', '--debug:custom-hive', $templateHive, $templateShortName, '-n', $projectName, '-o', $destinationPath)
 
     if ($Template -eq 'domain')
     {
-        Replace-PlaceholderText -ProjectPath $destinationPath -ProjectName $projectName
-
         $projectFilePath = Join-Path $destinationPath "$projectName.csproj"
         $domainCommonProjectPath = Get-DomainCommonProjectPath -SearchRoot (Get-Location).Path -GeneratedProjectPath $destinationPath
         Set-DomainCommonReference -ProjectFilePath $projectFilePath -DomainCommonProjectPath $domainCommonProjectPath
@@ -288,13 +258,13 @@ try
 }
 finally
 {
-    if ($null -ne $archivePath -and (Test-Path -LiteralPath $archivePath))
+    if ($null -ne $templateInstallSource -and [System.IO.Path]::GetExtension($templateInstallSource) -eq '.nupkg' -and (Test-Path -LiteralPath $templateInstallSource))
     {
-        Remove-Item -LiteralPath $archivePath -Force
+        Remove-Item -LiteralPath $templateInstallSource -Force
     }
 
-    if ($null -ne $extractedRepository -and (Test-Path -LiteralPath $extractedRepository.ExtractPath))
+    if ($null -ne $templateHive -and (Test-Path -LiteralPath $templateHive))
     {
-        Remove-Item -LiteralPath $extractedRepository.ExtractPath -Recurse -Force
+        Remove-Item -LiteralPath $templateHive -Recurse -Force
     }
 }
