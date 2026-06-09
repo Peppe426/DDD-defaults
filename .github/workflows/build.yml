@@ -1,0 +1,53 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build, Test and Publish Artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Package Domain.Common template
+        run: |
+          mkdir -p artifacts
+          zip -r artifacts/Domain.Common.zip src/Domain.Common/
+
+      - name: Package Domain.XXX template
+        run: |
+          zip -r artifacts/Domain.XXX.zip src/Domain.XXX/
+
+      - name: Upload Domain.Common artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Domain.Common
+          path: artifacts/Domain.Common.zip
+          retention-days: 90
+
+      - name: Upload Domain.XXX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Domain.XXX
+          path: artifacts/Domain.XXX.zip
+          retention-days: 90
