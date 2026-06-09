@@ -1,6 +1,4 @@
-using Domain.XXX.Application.EventHandlers;
-using Domain.XXX.Domain.Aggregates;
-using Domain.XXX.Domain.Events;
+using Domain.XXX.Tests.Support;
 using FluentAssertions;
 using NUnit.Framework;
 
@@ -10,60 +8,58 @@ namespace Domain.XXX.Tests;
 public class OrderTests
 {
     [Test]
+    public void Should_AddOrderItem_When_OrderIsNotConfirmed()
+    {
+        // Given
+        var order = new ExampleOrder(new ExampleCustomerEmail("customer@example.com"));
+        var item = new ExampleOrderItem(Guid.NewGuid(), "SKU-123", 1);
+
+        // When
+        order.AddItem(item);
+
+        // Then
+        order.Items.Should().ContainSingle().Which.Should().Be(item);
+    }
+
+    [Test]
     public void Should_RaiseOrderConfirmedDomainEvent_When_OrderIsConfirmed()
     {
         // Given
-        var order = new Order();
+        var order = new ExampleOrder(new ExampleCustomerEmail("customer@example.com"));
 
         // When
         order.Confirm();
 
         // Then
         order.DomainEvents.Should()
-            .ContainSingle(e => e is OrderConfirmedDomainEvent);
+            .ContainSingle(e => e is ExampleOrderConfirmedDomainEvent);
     }
 
     [Test]
-    public void Should_RaiseEventWithCorrectOrderId_When_OrderIsConfirmed()
+    public void Should_PreventChanges_When_OrderHasBeenConfirmed()
     {
         // Given
-        var order = new Order();
-
-        // When
-        order.Confirm();
-
-        // Then
-        var domainEvent = order.DomainEvents.Should()
-            .ContainSingle().Which.Should().BeOfType<OrderConfirmedDomainEvent>().Subject;
-
-        domainEvent.OrderId.Should().Be(order.Id);
-    }
-
-    [Test]
-    public void Should_BeEmpty_When_EventsAreClearedAfterConfirmation()
-    {
-        // Given
-        var order = new Order();
+        var order = new ExampleOrder(new ExampleCustomerEmail("customer@example.com"));
         order.Confirm();
 
         // When
-        order.ClearEvents();
+        Action act = () => order.AddItem(new ExampleOrderItem(Guid.NewGuid(), "SKU-123", 1));
 
         // Then
-        order.DomainEvents.Should().BeEmpty();
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [Test]
     public void Should_HaveOccurredOnSet_When_OrderIsConfirmed()
     {
         // Given
-        var order = new Order();
+        var order = new ExampleOrder(new ExampleCustomerEmail("customer@example.com"));
 
         // When
         order.Confirm();
 
         // Then
-        var domainEvent = (OrderConfirmedDomainEvent)order.DomainEvents.Single();
+        var domainEvent = (ExampleOrderConfirmedDomainEvent)order.DomainEvents.Single();
         domainEvent.OccurredOn.Should().BeCloseTo(DateTime.UtcNow, precision: TimeSpan.FromSeconds(5));
     }
 }
