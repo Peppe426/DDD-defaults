@@ -1,4 +1,4 @@
-using Domain.Common.Common;
+using Domain.Common;
 
 namespace Domain.XXX.Tests.Support;
 

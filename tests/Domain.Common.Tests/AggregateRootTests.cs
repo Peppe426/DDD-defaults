@@ -1,4 +1,4 @@
-using Domain.Common.Common;
+using Domain.Common;
 using FluentAssertions;
 using NUnit.Framework;
 

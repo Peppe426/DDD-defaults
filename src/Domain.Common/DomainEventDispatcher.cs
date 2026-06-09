@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Domain.Common.Common;
+namespace Domain.Common;
 
 public sealed class DomainEventDispatcher : IDomainEventDispatcher
 {

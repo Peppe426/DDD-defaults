@@ -23,6 +23,8 @@ Use the repository skill at `.github\skills\create-domain-template\SKILL.md` to 
 
 The skill drives the released `scripts\New-DomainTemplate.ps1` asset, resolves a matching `Peppe426.DDDDefaults.Templates.<version>.nupkg` from the same GitHub release, installs that package with `dotnet new`, defaults the target path to `.\Domain`, can add the generated `.csproj` to a solution, and rewrites the dedicated domain `ProjectReference` so it points at a local `Domain.Common` project when one already exists in the working tree.
 
+The generated `Domain.Common` project keeps its reusable primitives directly at the project root. It does not scaffold extra `Common`, `Aggregates`, `Entities`, `ValueObjects`, or `Events` folders.
+
 The skill must scaffold a **project**, not paste template files into an existing project. Typical outputs look like:
 
 - `.\Domain\Domain.Common\Domain.Common.csproj`

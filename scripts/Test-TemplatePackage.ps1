@@ -42,6 +42,40 @@ try
         throw "Expected generated Domain.Common project at '$commonProject'."
     }
 
+    $commonSourceFiles = @(
+        'AggregateRoot.cs',
+        'DomainEvent.cs',
+        'DomainEventDispatcher.cs',
+        'Entity.cs',
+        'IDomainEventDispatcher.cs',
+        'IDomainEventHandler.cs',
+        'ValueObject.cs'
+    )
+
+    foreach ($sourceFile in $commonSourceFiles)
+    {
+        if (-not (Test-Path -LiteralPath (Join-Path $commonOutput $sourceFile)))
+        {
+            throw "Expected generated Domain.Common source file '$sourceFile' at the project root."
+        }
+    }
+
+    $unexpectedCommonPaths = @(
+        (Join-Path $commonOutput 'Common'),
+        (Join-Path $commonOutput 'Aggregates'),
+        (Join-Path $commonOutput 'Entities'),
+        (Join-Path $commonOutput 'ValueObjects'),
+        (Join-Path $commonOutput 'Events')
+    )
+
+    foreach ($unexpectedPath in $unexpectedCommonPaths)
+    {
+        if (Test-Path -LiteralPath $unexpectedPath)
+        {
+            throw "Did not expect generated Domain.Common placeholder path '$unexpectedPath'."
+        }
+    }
+
     if (-not (Test-Path -LiteralPath $domainProject))
     {
         throw "Expected generated Domain.Sales project at '$domainProject'."

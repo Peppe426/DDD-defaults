@@ -89,6 +89,7 @@ Do **not** copy the template source files into an existing project as loose `.cs
 - The script installs a real `dotnet new` template package from the selected public GitHub release of `Peppe426/DDD-defaults`.
 - The downloaded script asset and the template package always come from the same release tag.
 - Using this skill means creating a **new project folder with a `.csproj`**, not copying template files into an existing project.
+- The generated `Domain.Common` project keeps its reusable primitives at the project root and does not add extra placeholder folders.
 - When a solution is supplied or auto-detected in the current directory, the generated project is added to that solution.
 - Dedicated domain projects use the DDD folder structure:
   - `Aggregates`

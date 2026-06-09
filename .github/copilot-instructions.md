@@ -11,7 +11,7 @@
 ## High-level architecture
 
 - This repository is a template source, not an application. `src\Domain.Common` contains the reusable DDD building blocks, and `src\Domain.XXX` is a placeholder template for a dedicated `Domain.<Name>` project.
-- `Domain.Common` defines the base model primitives under `Common\`: `Entity<TId>` for identity-based equality, `ValueObject` for component-based equality, `AggregateRoot` for collecting domain events, `IDomainEvent` / `DomainEventBase` for event contracts, and `DomainEventDispatcher` for dispatching events through `IServiceProvider`.
+- `Domain.Common` defines the base model primitives at the project root: `Entity<TId>` for identity-based equality, `ValueObject` for component-based equality, `AggregateRoot` for collecting domain events, `IDomainEvent` / `DomainEventBase` for event contracts, and `DomainEventDispatcher` for dispatching events through `IServiceProvider`.
 - `Domain.XXX` is intentionally almost empty. It preserves the DDD folder layout (`Aggregates`, `Entities`, `ValueObjects`, `Events`) and references `Domain.Common`, but example domain behavior lives in `tests\Domain.XXX.Tests\Support\ExampleDomainModel.cs` instead of the template project so the generated template stays clean.
 - The repository also ships scaffolding automation. `scripts\New-DomainTemplate.ps1` installs either the `src\Domain.Common` or `src\Domain.XXX` template through `dotnet new`, can add the generated `.csproj` to a solution, and rewrites the `Domain.Common` project reference when a shared project already exists in the target working tree.
 - CI packs the real `dotnet new` templates from `src\Domain.Common` and `src\Domain.XXX` into the `Peppe426.DDDDefaults.Templates` NuGet template package, so release artifacts contain the templates rather than the repository zip.
@@ -19,7 +19,7 @@
 ## Key conventions
 
 - Keep `src\Domain.XXX` free of sample domain artifacts. Use the dedicated test support model to demonstrate aggregate, entity, value object, and domain event usage instead of adding example business classes to the template itself.
-- Reusable domain infrastructure belongs in `Domain.Common.Common`. Dedicated domain templates should consume those abstractions via project reference rather than duplicating base classes.
+- Reusable domain infrastructure belongs in the `Domain.Common` namespace at the project root. Dedicated domain templates should consume those abstractions via project reference rather than duplicating base classes.
 - Domain events are raised inside aggregates with `RaiseEvent(...)`, collected on `AggregateRoot.DomainEvents`, and dispatched through `IDomainEventHandler<TEvent>` implementations resolved from dependency injection by `DomainEventDispatcher`.
 - Value objects implement equality exclusively through `GetEqualityComponents()`. Entities rely on `Entity<TId>` identity equality and should keep the identifier non-null.
 - Tests use NUnit 4 and FluentAssertions with `Should_[ExpectedBehavior]_When_[Condition]` naming and explicit `// Given`, `// When`, `// Then` comments.
