@@ -12,25 +12,69 @@ param(
 
     [string]$Repository = 'Peppe426/DDD-defaults',
 
-    [string]$Ref = 'main'
+    [Alias('Ref')]
+    [string]$ReleaseTag
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-RepositoryArchive {
+function Get-GitHubApiHeaders {
+    return @{
+        'Accept' = 'application/vnd.github+json'
+        'User-Agent' = 'DDD-defaults-scaffolder'
+    }
+}
+
+function Get-ReleaseMetadata {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryName,
+
+        [string]$Tag
+    )
+
+    $headers = Get-GitHubApiHeaders
+    $releaseUri = if ([string]::IsNullOrWhiteSpace($Tag))
+    {
+        "https://api.github.com/repos/$RepositoryName/releases/latest"
+    }
+    else
+    {
+        "https://api.github.com/repos/$RepositoryName/releases/tags/$Tag"
+    }
+
+    return Invoke-RestMethod -Uri $releaseUri -Headers $headers
+}
+
+function Get-ReleaseAssetArchive {
     param(
         [Parameter(Mandatory = $true)]
         [string]$RepositoryName,
 
         [Parameter(Mandatory = $true)]
-        [string]$RepositoryRef
+        [ValidateSet('common', 'domain')]
+        [string]$TemplateName,
+
+        [string]$Tag
     )
 
-    $archivePath = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-{0}.zip" -f ([Guid]::NewGuid().ToString('N')))
-    $archiveUrl = "https://codeload.github.com/$RepositoryName/zip/refs/heads/$RepositoryRef"
+    $release = Get-ReleaseMetadata -RepositoryName $RepositoryName -Tag $Tag
+    $assetNamePrefix = if ($TemplateName -eq 'common') { 'Domain.Common-' } else { 'Domain.XXX-' }
+    $asset = @($release.assets) |
+        Where-Object { $_.name -like "$assetNamePrefix*.zip" } |
+        Select-Object -First 1
 
-    Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath
+    if ($null -eq $asset)
+    {
+        $resolvedTag = if ([string]::IsNullOrWhiteSpace($Tag)) { $release.tag_name } else { $Tag }
+        throw "Could not locate a release asset matching '$assetNamePrefix*.zip' for release '$resolvedTag'."
+    }
+
+    $archivePath = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-{0}.zip" -f ([Guid]::NewGuid().ToString('N')))
+    $headers = Get-GitHubApiHeaders
+
+    Invoke-WebRequest -Uri $asset.browser_download_url -Headers $headers -OutFile $archivePath
 
     return $archivePath
 }
@@ -54,6 +98,28 @@ function Expand-RepositoryArchive {
         ExtractPath = $extractPath
         RepositoryRoot = $expandedRoot.FullName
     }
+}
+
+function Get-TemplateRootFromExpandedArchive {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryRoot,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('common', 'domain')]
+        [string]$TemplateName
+    )
+
+    $projectFileName = if ($TemplateName -eq 'common') { 'Domain.Common.csproj' } else { 'Domain.XXX.csproj' }
+    $projectFile = Get-ChildItem -Path $RepositoryRoot -Recurse -Filter $projectFileName -File |
+        Select-Object -First 1
+
+    if ($null -eq $projectFile)
+    {
+        throw "Could not locate '$projectFileName' in the downloaded template archive."
+    }
+
+    return $projectFile.DirectoryName
 }
 
 function Copy-TemplateProject {
@@ -181,28 +247,27 @@ try
 
     if ([string]::IsNullOrWhiteSpace($LocalRepositoryRoot))
     {
-        $archivePath = Get-RepositoryArchive -RepositoryName $Repository -RepositoryRef $Ref
+        $archivePath = Get-ReleaseAssetArchive -RepositoryName $Repository -TemplateName $Template -Tag $ReleaseTag
         $extractedRepository = Expand-RepositoryArchive -ArchivePath $archivePath
-        $repositoryRoot = $extractedRepository.RepositoryRoot
+        $templateRoot = Get-TemplateRootFromExpandedArchive -RepositoryRoot $extractedRepository.RepositoryRoot -TemplateName $Template
     }
     else
     {
         $resolvedRepositoryRoot = Resolve-Path -LiteralPath $LocalRepositoryRoot -ErrorAction Stop
         $repositoryRoot = $resolvedRepositoryRoot.Path
-    }
-
-    $templateRoot = if ($Template -eq 'common')
-    {
-        Join-Path $repositoryRoot 'src\Domain.Common'
-    }
-    else
-    {
-        Join-Path $repositoryRoot 'src\Domain.XXX'
+        $templateRoot = if ($Template -eq 'common')
+        {
+            Join-Path $repositoryRoot 'src\Domain.Common'
+        }
+        else
+        {
+            Join-Path $repositoryRoot 'src\Domain.XXX'
+        }
     }
 
     if (-not (Test-Path -LiteralPath $templateRoot))
     {
-        throw "Template path '$templateRoot' was not found in the downloaded repository."
+        throw "Template path '$templateRoot' was not found in the resolved template source."
     }
 
     New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
