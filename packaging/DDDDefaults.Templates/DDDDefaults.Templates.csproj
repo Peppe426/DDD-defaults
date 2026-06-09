@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Peppe426.DDDDefaults.Templates</PackageId>
+    <Version>0.0.0-local</Version>
+    <Authors>Peppe426</Authors>
+    <Description>dotnet new templates for Domain.Common and Domain.&lt;Name&gt; domain projects.</Description>
+    <PackageType>Template</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <NoWarn>NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\src\Domain.Common\**\*"
+             Exclude="..\..\src\Domain.Common\bin\**;..\..\src\Domain.Common\obj\**"
+             Pack="true"
+             PackagePath="content\Domain.Common\" />
+    <Content Include="..\..\src\Domain.XXX\**\*"
+             Exclude="..\..\src\Domain.XXX\bin\**;..\..\src\Domain.XXX\obj\**"
+             Pack="true"
+             PackagePath="content\Domain.XXX\" />
+  </ItemGroup>
+
+</Project>
