@@ -14,6 +14,13 @@ Use this skill when you want to scaffold either the shared `Domain.Common` proje
 
 This skill is designed to work from **any** solution or folder. It resolves a GitHub release from `Peppe426/DDD-defaults`, downloads the `New-DomainTemplate.ps1` asset from that same release, and uses it to install the matching `dotnet new` template package instead of assuming this repository is checked out locally.
 
+The generated output must always be a **standalone C# project** in its own folder, for example:
+
+- `.\Domain\Domain.Common\Domain.Common.csproj`
+- `.\Domain\Domain.Sales\Domain.Sales.csproj`
+
+Do **not** copy the template source files into an existing project as loose `.cs` files.
+
 ## Workflow
 
 1. Ask whether to create:
@@ -26,7 +33,17 @@ This skill is designed to work from **any** solution or folder. It resolves a Gi
    .\Domain
    ```
 
-4. Resolve the release to use and download the scaffolding script asset from that exact release:
+4. Check whether the current directory already contains solution files:
+
+   ```powershell
+   $solutions = @(Get-ChildItem -Path (Get-Location) -File | Where-Object { $_.Extension -in @('.sln', '.slnx') })
+   ```
+
+   - If exactly one solution is present, use it and add the generated project to that solution.
+   - If multiple solutions are present, ask the user which one to use or whether to skip solution integration.
+   - If no solution is present, scaffold the project only.
+
+5. Resolve the release to use and download the scaffolding script asset from that exact release:
 
    ```powershell
    $repository = 'Peppe426/DDD-defaults'
@@ -45,32 +62,34 @@ This skill is designed to work from **any** solution or folder. It resolves a Gi
    Invoke-WebRequest -Uri $scriptAsset.browser_download_url -Headers $headers -OutFile $scriptPath
    ```
 
-5. Run the downloaded scaffolding script:
+6. Run the downloaded scaffolding script:
 
    - For `Domain.Common`:
 
      ```powershell
-    & $scriptPath -Template common -DestinationRoot "<target-path>" -Repository $repository -ReleaseTag $release.tag_name
+    & $scriptPath -Template common -DestinationRoot "<target-path>" -Repository $repository -ReleaseTag $release.tag_name [-SolutionPath "<solution-path>"]
      ```
 
    - For a dedicated domain:
 
      ```powershell
-    & $scriptPath -Template domain -DomainName "<name>" -DestinationRoot "<target-path>" -Repository $repository -ReleaseTag $release.tag_name
+    & $scriptPath -Template domain -DomainName "<name>" -DestinationRoot "<target-path>" -Repository $repository -ReleaseTag $release.tag_name [-SolutionPath "<solution-path>"]
      ```
 
-6. Clean up the temporary script:
+7. Clean up the temporary script:
 
    ```powershell
    Remove-Item -LiteralPath $scriptPath -Force
    ```
 
-7. Report the generated project path back to the user.
+8. Report the generated project path back to the user and mention the solution file when the project was added to one.
 
 ## Behavior
 
 - The script installs a real `dotnet new` template package from the selected public GitHub release of `Peppe426/DDD-defaults`.
 - The downloaded script asset and the template package always come from the same release tag.
+- Using this skill means creating a **new project folder with a `.csproj`**, not copying template files into an existing project.
+- When a solution is supplied or auto-detected in the current directory, the generated project is added to that solution.
 - Dedicated domain projects use the DDD folder structure:
   - `Aggregates`
   - `Entities`

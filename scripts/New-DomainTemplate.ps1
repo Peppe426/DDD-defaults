@@ -13,7 +13,9 @@ param(
     [string]$Repository = 'Peppe426/DDD-defaults',
 
     [Alias('Ref')]
-    [string]$ReleaseTag
+    [string]$ReleaseTag,
+
+    [string]$SolutionPath
 )
 
 Set-StrictMode -Version Latest
@@ -161,6 +163,40 @@ function Get-DomainCommonProjectPath {
         Select-Object -ExpandProperty FullName -First 1
 }
 
+function Resolve-SolutionFilePath {
+    param(
+        [string]$RequestedSolutionPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($RequestedSolutionPath))
+    {
+        $resolvedSolutionPath = Resolve-Path -LiteralPath $RequestedSolutionPath -ErrorAction Stop
+        $solutionExtension = [System.IO.Path]::GetExtension($resolvedSolutionPath.Path)
+
+        if ($solutionExtension -notin @('.sln', '.slnx'))
+        {
+            throw "SolutionPath '$($resolvedSolutionPath.Path)' must point to a .sln or .slnx file."
+        }
+
+        return $resolvedSolutionPath.Path
+    }
+
+    $solutionCandidates = @(Get-ChildItem -Path (Get-Location).Path -File |
+        Where-Object { $_.Extension -in @('.sln', '.slnx') })
+
+    if ($solutionCandidates.Count -gt 1)
+    {
+        throw "Multiple solution files were found in '$(Get-Location)'. Specify -SolutionPath explicitly."
+    }
+
+    if ($solutionCandidates.Count -eq 1)
+    {
+        return $solutionCandidates[0].FullName
+    }
+
+    return $null
+}
+
 function Set-DomainCommonReference {
     param(
         [Parameter(Mandatory = $true)]
@@ -203,6 +239,22 @@ function Set-DomainCommonReference {
     $projectXml.Save($ProjectFilePath)
 }
 
+function Add-ProjectToSolution {
+    param(
+        [string]$SolutionFilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectFilePath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SolutionFilePath))
+    {
+        return
+    }
+
+    Invoke-DotNetCommand -Arguments @('sln', $SolutionFilePath, 'add', $ProjectFilePath)
+}
+
 $templateInstallSource = $null
 $templateHive = $null
 
@@ -215,6 +267,7 @@ try
 
     $projectName = if ($Template -eq 'common') { 'Domain.Common' } else { "Domain.$DomainName" }
     $repositoryRoot = $null
+    $resolvedSolutionPath = Resolve-SolutionFilePath -RequestedSolutionPath $SolutionPath
 
     if (-not [string]::IsNullOrWhiteSpace($LocalRepositoryRoot))
     {
@@ -243,18 +296,25 @@ try
 
     $templateHive = Join-Path ([System.IO.Path]::GetTempPath()) ("DDD-defaults-hive-{0}" -f ([Guid]::NewGuid().ToString('N')))
     $templateShortName = Get-TemplateShortName -TemplateName $Template
+    $projectFilePath = Join-Path $destinationPath "$projectName.csproj"
 
     Invoke-DotNetCommand -Arguments @('new', '--debug:custom-hive', $templateHive, 'install', $templateInstallSource)
     Invoke-DotNetCommand -Arguments @('new', '--debug:custom-hive', $templateHive, $templateShortName, '-n', $projectName, '-o', $destinationPath)
 
     if ($Template -eq 'domain')
     {
-        $projectFilePath = Join-Path $destinationPath "$projectName.csproj"
         $domainCommonProjectPath = Get-DomainCommonProjectPath -SearchRoot (Get-Location).Path -GeneratedProjectPath $destinationPath
         Set-DomainCommonReference -ProjectFilePath $projectFilePath -DomainCommonProjectPath $domainCommonProjectPath
     }
 
+    Add-ProjectToSolution -SolutionFilePath $resolvedSolutionPath -ProjectFilePath $projectFilePath
+
     Write-Host "Scaffolded $projectName to $destinationPath"
+
+    if (-not [string]::IsNullOrWhiteSpace($resolvedSolutionPath))
+    {
+        Write-Host "Added $projectFilePath to solution $resolvedSolutionPath"
+    }
 }
 finally
 {
